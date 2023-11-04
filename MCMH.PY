@@ -1,8 +1,11 @@
-import os
-import sys
 import atexit
-import psutil
+import os
 import subprocess
+import sys
+
+import psutil
+from PyQt5.QtCore import QProcess, pyqtSlot, Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -17,8 +20,6 @@ from PyQt5.QtWidgets import (
     QDialog,
     QLabel,
 )
-from PyQt5.QtCore import QProcess, pyqtSlot, Qt, QTimer, QThread, pyqtSignal
-from PyQt5.QtGui import QFont, QIcon
 
 minecraft_server_jar = "paper.jar"
 additional_exe = "update.exe"
@@ -33,6 +34,7 @@ class SystemResourceThread(QThread):
             cpu_percent = psutil.cpu_percent(interval=1)
             memory_percent = psutil.virtual_memory().percent
             self.system_resource_signal.emit(cpu_percent, memory_percent)
+
 
 class CustomCommandDialog(QDialog):
     def __init__(self, parent=None):
