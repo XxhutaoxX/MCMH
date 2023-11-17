@@ -1,9 +1,13 @@
+import atexit
 import os
 import subprocess
-import atexit
+import sys
+import time
+
+from PyQt5.QtCore import QProcess, pyqtSlot, Qt
 from PyQt5.QtGui import QFont, QIcon
-from PyQt5.QtCore import Qt, pyqtSlot, QProcess
 from PyQt5.QtWidgets import (
+    QApplication,
     QMainWindow,
     QPushButton,
     QVBoxLayout,
@@ -12,55 +16,61 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QHBoxLayout,
     QMessageBox,
-    QComboBox,
-    QDialog,
-    QApplication,
+    QComboBox, QDialog,
 )
-
 
 from system_resource_thread import SystemResourceThread
 from custom_command_dialog import CustomCommandDialog
 from command_completer import CommandCompleter
+from tools import Tools
 
 minecraft_server_jar = "paper.jar"
 additional_exe = "update.exe"
 custom_command_file = "start.txt"
-
 
 class MinecraftServerManager(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("梦幻我的世界服务器管理面板")
         self.setGeometry(100, 100, 800, 600)
+        self.setWindowIcon(QIcon("./app_icon.ico"))
 
         # 使用 Fusion 样式
         self.app = QApplication.instance() or QApplication([])
         self.app.setStyle("Fusion")
 
         # 创建字体对象
-        font = QFont()
-        font.setFamily("微软雅黑")  # 设置字体族
-        font.setPointSize(12)  # 设置字体大小
+        font = self.create_font()
 
         # 创建按钮样式
-        button_style = (
-            "QPushButton { background-color: #3498db; color: white; border: none; "
-            "padding: 10px; border-radius: 5px; }"
-            "QPushButton:hover { background-color: #2980b9; }"
-        )
-        self.setStyleSheet(button_style)
+        self.setStyleSheet(self.create_button_style())
 
         self.create_widgets(font)
         self.create_layouts()
         self.create_connections()
 
         self.process = None
+        self.special_feature_dialog = Tools(self)
+
         try:
             self.start_additional_script()
         except Exception as e:
             print(f"Error: {e}")
 
         atexit.register(self.closeEvent)
+
+    def create_font(self):
+        font = QFont()
+        font.setFamily("微软雅黑")  # 设置字体族
+        font.setPointSize(12)  # 设置字体大小
+        return font
+
+    def create_button_style(self):
+        return (
+            "QPushButton { background-color: #3498db; color: white; border: none; "
+            "padding: 10px; border-radius: 5px; }"
+            "QPushButton:hover { background-color: #2980b9; }"
+        )
 
     def create_widgets(self, font):
         self.create_buttons(font)
@@ -73,9 +83,8 @@ class MinecraftServerManager(QMainWindow):
     def create_buttons(self, font):
         self.start_button = self.create_button("启动服务器", self.on_start_button_click, font)
         self.stop_button = self.create_button("停止服务器", self.on_stop_button_click, font)
-        #self.quit_button = self.create_button("退出", self.on_quit_button_click, font)
-        #删除退出按钮
         self.custom_command_button = self.create_button("自定义启动命令", self.on_custom_command_button_click, font)
+        self.special_feature_button = self.create_button("工具", self.open_special_feature_dialog, font)
 
     def create_button(self, text, on_click, font):
         button = QPushButton(text)
@@ -107,22 +116,29 @@ class MinecraftServerManager(QMainWindow):
         self.font_size_combo.currentIndexChanged.connect(self.change_font_size)
 
     def create_layouts(self):
+        buttons_layout = self.create_buttons_layout()
+
+        main_layout = self.create_main_layout(buttons_layout)
+
+        container = QWidget()
+        container.setLayout(main_layout)
+        self.setCentralWidget(container)
+
+    def create_buttons_layout(self):
         buttons_layout = QHBoxLayout()
         buttons_layout.addWidget(self.start_button)
         buttons_layout.addWidget(self.stop_button)
-        #buttons_layout.addWidget(self.quit_button)
-        #删除退出按钮
         buttons_layout.addWidget(self.custom_command_button)
+        buttons_layout.addWidget(self.special_feature_button)
+        return buttons_layout
 
+    def create_main_layout(self, buttons_layout):
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.output_widget)
         main_layout.addWidget(self.input_text)
         main_layout.addWidget(self.font_size_combo)
         main_layout.addLayout(buttons_layout)
-
-        container = QWidget()
-        container.setLayout(main_layout)
-        self.setCentralWidget(container)
+        return main_layout
 
     def create_command_completer(self):
         # 获取Minecraft服务器命令列表
@@ -173,14 +189,14 @@ class MinecraftServerManager(QMainWindow):
             self.process.write("stop\n".encode())
             self.statusBar().showMessage("向Minecraft服务器发送停止命令")
 
-    def on_quit_button_click(self):
-        if self.confirm_exit():
-            self.close()
-
     def on_custom_command_button_click(self):
         dialog = CustomCommandDialog(self)
         if dialog.exec_() == QDialog.Accepted:
             QMessageBox.information(self, '保存成功', '自定义命令已成功保存！')
+
+    @pyqtSlot()
+    def open_special_feature_dialog(self):
+        self.special_feature_dialog.show()
 
     def send_command(self):
         command = self.input_text.text()
@@ -226,3 +242,9 @@ class MinecraftServerManager(QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MinecraftServerManager()
+    window.show()
+    sys.exit(app.exec_())
